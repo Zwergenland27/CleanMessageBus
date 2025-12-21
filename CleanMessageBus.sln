@@ -7,6 +7,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{6A8F3F15-F11
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CleanMessageBus", "src\CleanMessageBus\CleanMessageBus.csproj", "{06663DC5-E81C-45C5-812C-8C70EB2AF536}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CleanMessageBus.RabbitMQ", "src\CleanMessageBus.RabbitMQ\CleanMessageBus.RabbitMQ.csproj", "{40D62095-8EA3-41F0-A5E9-C99C5F26BD5F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,11 +19,16 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{06663DC5-E81C-45C5-812C-8C70EB2AF536} = {6A8F3F15-F119-45F1-8E9B-8BDDBF8FA1D7}
+		{40D62095-8EA3-41F0-A5E9-C99C5F26BD5F} = {6A8F3F15-F119-45F1-8E9B-8BDDBF8FA1D7}
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{06663DC5-E81C-45C5-812C-8C70EB2AF536}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{06663DC5-E81C-45C5-812C-8C70EB2AF536}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{06663DC5-E81C-45C5-812C-8C70EB2AF536}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{06663DC5-E81C-45C5-812C-8C70EB2AF536}.Release|Any CPU.Build.0 = Release|Any CPU
+		{40D62095-8EA3-41F0-A5E9-C99C5F26BD5F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{40D62095-8EA3-41F0-A5E9-C99C5F26BD5F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{40D62095-8EA3-41F0-A5E9-C99C5F26BD5F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{40D62095-8EA3-41F0-A5E9-C99C5F26BD5F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
