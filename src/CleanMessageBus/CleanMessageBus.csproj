@@ -4,7 +4,31 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PackageId>Zwergenland.CleanMessageBus</PackageId>
+        <Title>CleanMessageBus</Title>
+        <Company>Zwergenland</Company>
+        <Version>0.0.0-beta</Version>
+        <Authors>Florian Königsmann</Authors>
+        <Product>CleanMessageBus</Product>
+        <Description>Abstraction around message busses for easy integration of events</Description>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RepositoryUrl>https://github.com/Zwergenland27/CleanMessageBus</RepositoryUrl>
+        <PackageTags>RabbitMQ; Event; DDD</PackageTags>
+        <PackageProjectUrl>https://github.com/Zwergenland27/CleanMessageBus/</PackageProjectUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+        <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+        <GenerateDocumentationFile>True</GenerateDocumentationFile>
     </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\..\README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
+
 
     <ItemGroup>
       <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
