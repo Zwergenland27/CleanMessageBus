@@ -24,6 +24,8 @@ internal class RabbitMqBus(
     private IChannel? _normalChannel;
     private IChannel? _scheduledChannel;
     private readonly CancellationTokenSource _cancellationTokenSource = new();
+
+    private bool _disposed = false;
     
     public async Task PublishAsync(IIntegrationEvent integrationEvent)
     {
@@ -33,7 +35,7 @@ internal class RabbitMqBus(
         var body = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType());
         
         await _normalChannel.BasicPublishAsync(exchange: exchangeName, routingKey: string.Empty, body: Encoding.UTF8.GetBytes(body));
-        logger.LogInformation("Published Integration Event {EventName} to exchange {ExchangeName}", integrationEvent.GetType().Name, exchangeName);
+        logger.LogInformation("Published event {EventName} to exchange {ExchangeName}", integrationEvent.GetType().Name, exchangeName);
     }
 
     private async Task RegisterIntegrationEvent(Type integrationEventType)
@@ -156,19 +158,23 @@ internal class RabbitMqBus(
 
     public void Dispose()
     {
+        if(_disposed) return;
         _cancellationTokenSource.Cancel();
         _connection?.Dispose();
         _normalChannel?.Dispose();
         _cancellationTokenSource.Dispose();
         logger.LogInformation("Connection to Broker at {Hostname} closed", hostname);
+        _disposed = true;
     }
 
     public async ValueTask DisposeAsync()
     {
+        if(_disposed) return;
         await _cancellationTokenSource.CancelAsync();
         if (_connection != null) await _connection.DisposeAsync();
         if (_normalChannel != null) await _normalChannel.DisposeAsync();
         _cancellationTokenSource.Dispose();
         logger.LogInformation("Connection to Broker at {Hostname} closed", hostname);
+        _disposed = true;
     }
 }
