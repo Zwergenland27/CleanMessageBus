@@ -50,7 +50,7 @@ public class CleanMessageBusConfiguration(IServiceCollection services)
     /// <summary>
     /// Register integration events from list of <paramref name="assemblies"/>
     /// </summary>
-    public CleanMessageBusConfiguration RegisterIntegrationEvents(params Assembly[] assemblies)
+    public CleanMessageBusConfiguration RegisterIntegrationEventsFromAssemblies(params Assembly[] assemblies)
     {
         foreach (var assembly in assemblies)
         {
