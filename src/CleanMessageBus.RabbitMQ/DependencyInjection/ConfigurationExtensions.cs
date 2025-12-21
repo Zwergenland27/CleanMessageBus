@@ -33,6 +33,7 @@ public static class ConfigurationExtensions
             configurationBuilder.SslOptions));
         
         messageBusConfiguration.Services.AddSingleton<IMessageBus>(sp => sp.GetRequiredService<RabbitMqBus>());
+        messageBusConfiguration.Services.AddHostedService<RabbitMqConnectionJob>();
         return messageBusConfiguration;
     }
 }
