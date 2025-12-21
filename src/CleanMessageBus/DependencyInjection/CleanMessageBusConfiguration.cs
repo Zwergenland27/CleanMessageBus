@@ -6,14 +6,17 @@ namespace CleanMessageBus.DependencyInjection;
 /// <summary>
 /// Configuration for the CleanMessageBus
 /// </summary>
-/// <param name="services"></param>
 public class CleanMessageBusConfiguration(IServiceCollection services)
 {
+    public readonly IServiceCollection Services = services;
     private readonly HashSet<Type> _integrationEvents = [];
     private readonly HashSet<Type> _integrationEventHandlers = [];
-
-    internal bool MessageBusRegistered = false;
     
+    public IReadOnlyCollection<Type> IntegrationEvents => _integrationEvents.ToList().AsReadOnly();
+    public IReadOnlyCollection<Type> IntegrationEventHandlers => _integrationEventHandlers.ToList().AsReadOnly();
+
+    public bool MessageBusRegistered = false;
+
     /// <summary>
     /// Register handlers from assembly <paramref name="assembly"/>
     /// </summary>
@@ -67,7 +70,7 @@ public class CleanMessageBusConfiguration(IServiceCollection services)
         
         foreach (var handler in handlerTypes)
         {
-            services.AddTransient(handler.concreteType);
+            Services.AddTransient(handler.concreteType);
             _integrationEventHandlers.Add(handler.concreteType);
         }
     }
