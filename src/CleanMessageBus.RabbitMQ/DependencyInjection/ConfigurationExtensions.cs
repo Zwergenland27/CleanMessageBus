@@ -9,8 +9,16 @@ namespace CleanMessageBus.RabbitMQ.DependencyInjection;
 /// </summary>
 public static class ConfigurationExtensions
 {
+    /// <summary>
+    /// Use rabbitmq as message bus
+    /// </summary>
+    /// <param name="messageBusConfiguration">configuration for message bus</param>
+    /// <param name="configuration">configuration for rabbitmq</param>
     public static CleanMessageBusConfiguration UseRabbitMq(this CleanMessageBusConfiguration messageBusConfiguration, Action<RabbitMqConfiguration> configuration)
     {
+        if(messageBusConfiguration.MessageBusRegistered) throw new InvalidOperationException("A service bus has already been registered.");
+        messageBusConfiguration.MessageBusRegistered = true;
+        
         var configurationBuilder = new RabbitMqConfiguration();
         configuration(configurationBuilder);
         
