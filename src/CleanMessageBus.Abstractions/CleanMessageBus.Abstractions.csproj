@@ -4,16 +4,16 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <PackageId>Zwergenland.CleanMessageBus</PackageId>
-        <Title>CleanMessageBus</Title>
+        <PackageId>Zwergenland.CleanMessageBus.Abstractions</PackageId>
+        <Title>CleanMessageBus.Abstractions</Title>
         <Company>Zwergenland</Company>
         <Version>0.0.0-beta</Version>
         <Authors>Florian Königsmann</Authors>
-        <Product>CleanMessageBus</Product>
+        <Product>CleanMessageBus.Abstractions</Product>
         <Description>Abstraction around message busses for easy integration of events</Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <RepositoryUrl>https://github.com/Zwergenland27/CleanMessageBus</RepositoryUrl>
-        <PackageTags>RabbitMQ; Event; DDD</PackageTags>
+        <PackageTags>Events; Messaging; DDD</PackageTags>
         <PackageProjectUrl>https://github.com/Zwergenland27/CleanMessageBus/</PackageProjectUrl>
         <RepositoryType>git</RepositoryType>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>

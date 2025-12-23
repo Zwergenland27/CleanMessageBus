@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - v*
+      - abstractions/v*
 
 env:
   PACKAGE_OUTPUT_DIR: ${{ github.workspace }}/${{ vars.PACKAGE_OUTPUT_DIR }}
@@ -25,16 +25,16 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build ${{ vars.PROJECT_NAME }} --no-restore --configuration Release
+        run: dotnet build --no-restore --configuration Release
 
       - name: Get Version from tag
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          VERSION=${GITHUB_REF_NAME#*/v}
           echo Version: $VERSION
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Pack
-        run: dotnet pack ${{ vars.PROJECT_NAME }} --no-restore --no-build --configuration Release -p:PackageVersion=${VERSION} --output ${{ env.PACKAGE_OUTPUT_DIR }}
+        run: dotnet pack src/${{ vars.ABSTRACTIONS_NAME }} --no-restore --no-build --configuration Release -p:PackageVersion=${VERSION} --output ${{ env.PACKAGE_OUTPUT_DIR }}
 
       - name: Publish
         run: dotnet nuget push ${{ env.PACKAGE_OUTPUT_DIR }}/*.nupkg -k ${{ secrets.NUGET_API_KEY }} -s ${{ vars.NUGET_SOURCE_URL }}
