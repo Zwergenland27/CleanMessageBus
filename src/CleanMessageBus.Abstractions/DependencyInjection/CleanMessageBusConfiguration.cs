@@ -8,13 +8,26 @@ namespace CleanMessageBus.Abstractions.DependencyInjection;
 /// </summary>
 public class CleanMessageBusConfiguration(IServiceCollection services)
 {
+    /// <summary>
+    /// ServiceCollection for internal usage passed in from dependency injection
+    /// </summary>
     public readonly IServiceCollection Services = services;
     private readonly HashSet<Type> _integrationEvents = [];
     private readonly HashSet<Type> _integrationEventHandlers = [];
     
+    /// <summary>
+    /// List of registered integration event types
+    /// </summary>
     public IReadOnlyCollection<Type> IntegrationEvents => _integrationEvents.ToList().AsReadOnly();
+    
+    /// <summary>
+    /// List of registered integration event handler types
+    /// </summary>
     public IReadOnlyCollection<Type> IntegrationEventHandlers => _integrationEventHandlers.ToList().AsReadOnly();
 
+    /// <summary>
+    /// Indicates whether one message bus is registered
+    /// </summary>
     public bool MessageBusRegistered = false;
 
     /// <summary>

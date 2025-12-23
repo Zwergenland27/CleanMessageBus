@@ -7,6 +7,9 @@ namespace CleanMessageBus.Abstractions.DependencyInjection;
 /// </summary>
 public static class DependencyInjection
 {
+    /// <summary>
+    /// Adds and configures Features of CleanMessageBus
+    /// </summary>
     public static IServiceCollection AddCleanMessageBus(this IServiceCollection services, Action<CleanMessageBusConfiguration> configuration)
     {
         var configurationBuilder = new CleanMessageBusConfiguration(services);
