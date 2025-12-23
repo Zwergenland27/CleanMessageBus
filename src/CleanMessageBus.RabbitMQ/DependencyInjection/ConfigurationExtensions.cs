@@ -1,4 +1,5 @@
-using CleanMessageBus.DependencyInjection;
+using CleanMessageBus.Abstractions;
+using CleanMessageBus.Abstractions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 

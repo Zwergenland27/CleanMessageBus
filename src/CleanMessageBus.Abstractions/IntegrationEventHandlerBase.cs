@@ -1,6 +1,6 @@
 using CleanDomainValidation.Domain;
 
-namespace CleanMessageBus;
+namespace CleanMessageBus.Abstractions;
 
 /// <summary>
 /// Defines handler for events of type <typeparamref name="TIntegrationEvent"/>

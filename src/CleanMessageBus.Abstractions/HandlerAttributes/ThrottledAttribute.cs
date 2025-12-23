@@ -1,4 +1,4 @@
-namespace CleanMessageBus.HandlerAttributes;
+namespace CleanMessageBus.Abstractions.HandlerAttributes;
 
 /// <summary>
 /// Defines that the handler should be throttled

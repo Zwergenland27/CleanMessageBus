@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace CleanMessageBus.DependencyInjection;
+namespace CleanMessageBus.Abstractions.DependencyInjection;
 
 /// <summary>
 /// Dependency Injection Features for CleanMessageBus

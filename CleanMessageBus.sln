@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{6A8F3F15-F119-45F1-8E9B-8BDDBF8FA1D7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CleanMessageBus", "src\CleanMessageBus\CleanMessageBus.csproj", "{06663DC5-E81C-45C5-812C-8C70EB2AF536}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CleanMessageBus.Abstractions", "src\CleanMessageBus.Abstractions\CleanMessageBus.Abstractions.csproj", "{06663DC5-E81C-45C5-812C-8C70EB2AF536}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CleanMessageBus.RabbitMQ", "src\CleanMessageBus.RabbitMQ\CleanMessageBus.RabbitMQ.csproj", "{40D62095-8EA3-41F0-A5E9-C99C5F26BD5F}"
 EndProject

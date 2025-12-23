@@ -1,6 +1,6 @@
 using CleanDomainValidation.Application;
 
-namespace CleanMessageBus;
+namespace CleanMessageBus.Abstractions;
 
 /// <summary>
 /// Marker interface for integration events

@@ -1,4 +1,4 @@
-namespace CleanMessageBus.HandlerAttributes;
+namespace CleanMessageBus.Abstractions.HandlerAttributes;
 
 /// <summary>
 /// Defines custom producer name

@@ -1,4 +1,4 @@
-namespace CleanMessageBus;
+namespace CleanMessageBus.Abstractions;
 
 /// <summary>
 /// The configured message bus

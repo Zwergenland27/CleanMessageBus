@@ -1,7 +1,7 @@
 using CleanDomainValidation.Application;
 using CleanDomainValidation.Domain;
 
-namespace CleanMessageBus;
+namespace CleanMessageBus.Abstractions;
 
 /// <summary>
 /// Defines handler for request of type <typeparamref name="TRequest"/>

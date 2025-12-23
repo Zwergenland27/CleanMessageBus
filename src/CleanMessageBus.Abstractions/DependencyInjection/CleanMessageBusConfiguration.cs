@@ -1,7 +1,7 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace CleanMessageBus.DependencyInjection;
+namespace CleanMessageBus.Abstractions.DependencyInjection;
 
 /// <summary>
 /// Configuration for the CleanMessageBus
