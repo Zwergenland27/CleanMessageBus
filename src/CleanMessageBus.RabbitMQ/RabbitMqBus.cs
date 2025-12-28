@@ -14,6 +14,8 @@ internal class RabbitMqBus(
     ILogger<RabbitMqBus> logger,
     IReadOnlyCollection<Type> integrationEvents,
     IReadOnlyCollection<Type> integrationEventHandlers,
+    IReadOnlyCollection<Type> domainEvents,
+    IReadOnlyCollection<Type> domainEventHandlers,
     string hostname,
     string username,
     string password,
@@ -36,24 +38,35 @@ internal class RabbitMqBus(
         await _normalChannel.BasicPublishAsync(exchange: exchangeName, routingKey: string.Empty, body: Encoding.UTF8.GetBytes(body));
         logger.LogInformation("Published event {EventName} to exchange {ExchangeName}", integrationEvent.GetType().Name, exchangeName);
     }
+    
+    public async Task PublishAsync(IDomainEvent domainEvent)
+    {
+        if(_normalChannel is null) throw new InvalidOperationException("RabbitMQBus has not been initialized.");
+        
+        var exchangeName = domainEvent.GetType().GetProducerName();
+        var body = JsonSerializer.Serialize(domainEvent, domainEvent.GetType());
+        
+        await _normalChannel.BasicPublishAsync(exchange: exchangeName, routingKey: string.Empty, body: Encoding.UTF8.GetBytes(body));
+        logger.LogInformation("Published event {EventName} to exchange {ExchangeName}", domainEvent.GetType().Name, exchangeName);
+    }
 
-    private async Task RegisterIntegrationEvent(Type integrationEventType)
+    private async Task RegisterEventAsync(Type eventType)
     {
         if(_normalChannel is null) throw new InvalidOperationException("RabbitMQBus has not been initialized.");
 
-        var exchangeName = integrationEventType.GetProducerName();
+        var exchangeName = eventType.GetProducerName();
 
         await _normalChannel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Fanout, durable: true);
         logger.LogDebug("Declared exchange {ExchangeName}", exchangeName);
     }
 
-    private async Task RegisterHandler(Type integrationEventHandlerType)
+    private async Task RegisterHandlerAsync(Type eventHandlerType)
     {
         if(_normalChannel is null) throw new InvalidOperationException("RabbitMQBus has not been initialized.");
 
-        var exchangeName = integrationEventHandlerType.GetProducedByName();
-        var queueName = integrationEventHandlerType.GetConsumerName();
-        var throttledRequestInterval = integrationEventHandlerType.GetThrottledRequestInterval();
+        var exchangeName = eventHandlerType.GetProducedByName();
+        var queueName = eventHandlerType.GetConsumerName();
+        var throttledRequestInterval = eventHandlerType.GetThrottledRequestInterval();
         
         await _normalChannel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
         logger.LogDebug("Declared queue {QueueName}", queueName);
@@ -68,13 +81,13 @@ internal class RabbitMqBus(
             await channel.BasicQosAsync(
                 prefetchSize: 0,
                 prefetchCount: 1,
-                global: false);;
+                global: false);
             _scheduledChannels.Add(channel);
             logger.LogDebug("Use throttled channel for queue {QueueName}", queueName);
         }
         
                 
-        var integrationEventType = integrationEventHandlerType.BaseType!.GetGenericArguments()[0];
+        var eventType = eventHandlerType.BaseType!.GetGenericArguments()[0];
         
         var consumer = new AsyncEventingBasicConsumer(channel);
         consumer.ReceivedAsync += async (_, ea) =>
@@ -84,14 +97,14 @@ internal class RabbitMqBus(
                 var body = ea.Body.ToArray();
                 var content =  Encoding.UTF8.GetString(body);
             
-                var integrationEvent = JsonSerializer.Deserialize(content, integrationEventType);
-                if(integrationEvent is null) throw new InvalidDataException($"Integration event '{integrationEventType.Name}' cannot be deserialized.");
+                var @event = JsonSerializer.Deserialize(content, eventType);
+                if(@event is null) throw new InvalidDataException($"Event '{eventType.Name}' cannot be deserialized.");
 
                 await using var scope = scopeFactory.CreateAsyncScope();
-                dynamic handler = scope.ServiceProvider.GetRequiredService(integrationEventHandlerType);
+                dynamic handler = scope.ServiceProvider.GetRequiredService(eventHandlerType);
             
-                logger.LogInformation("Received event {EventName}", integrationEvent.GetType().Name);
-                CanFail result = await handler.Handle((dynamic)integrationEvent, _cancellationTokenSource.Token);
+                logger.LogInformation("Received event {EventName}", @event.GetType().Name);
+                CanFail result = await handler.Handle((dynamic)@event, _cancellationTokenSource.Token);
 
                 if (throttledRequestInterval is not null)
                 {
@@ -100,14 +113,14 @@ internal class RabbitMqBus(
 
                 if (result.HasFailed)
                 {
-                    logger.LogWarning("Handling event {EventName} failed", integrationEvent.GetType().Name);
+                    logger.LogWarning("Handling event {EventName} failed", @event.GetType().Name);
                     //TODO: error handling
                 }
                 await channel.BasicAckAsync(ea.DeliveryTag, true);
             }
             catch (Exception e)
             {
-                logger.LogError(e, "Error occured while handling event {EventName}", integrationEventType.Name);
+                logger.LogError(e, "Error occured while handling event {EventName}", eventType.Name);
             }
         };
         
@@ -134,12 +147,22 @@ internal class RabbitMqBus(
 
         foreach (var integrationEvent in integrationEvents)
         {
-            await RegisterIntegrationEvent(integrationEvent);
+            await RegisterEventAsync(integrationEvent);
         }
 
         foreach (var integrationEventHandler in integrationEventHandlers)
         {
-            await  RegisterHandler(integrationEventHandler);
+            await  RegisterHandlerAsync(integrationEventHandler);
+        }
+
+        foreach (var domainEvent in domainEvents)
+        {
+            await RegisterEventAsync(domainEvent);
+        }
+        
+        foreach (var domainEventHandler in domainEventHandlers)
+        {
+            await  RegisterHandlerAsync(domainEventHandler);
         }
     }
 

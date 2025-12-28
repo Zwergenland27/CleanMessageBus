@@ -28,6 +28,8 @@ public static class ConfigurationExtensions
             serviceProvider.GetRequiredService<ILogger<RabbitMqBus>>(),
             messageBusConfiguration.IntegrationEvents,
             messageBusConfiguration.IntegrationEventHandlers,
+            messageBusConfiguration.DomainEvents,
+            messageBusConfiguration.DomainEventHandlers,
             configurationBuilder.Host,
             configurationBuilder.Username,
             configurationBuilder.Password,
