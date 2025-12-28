@@ -1,9 +1,7 @@
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using CleanDomainValidation.Domain;
 using CleanMessageBus.Abstractions;
-using CleanMessageBus.Abstractions.HandlerAttributes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
@@ -26,13 +24,13 @@ internal class RabbitMqBus(
     private IChannel? _scheduledChannel;
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
-    private bool _disposed = false;
+    private bool _disposed;
     
     public async Task PublishAsync(IIntegrationEvent integrationEvent)
     {
         if(_normalChannel is null) throw new InvalidOperationException("RabbitMQBus has not been initialized.");
         
-        var exchangeName = integrationEvent.GetType().FullName!;
+        var exchangeName = integrationEvent.GetType().GetProducerName();
         var body = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType());
         
         await _normalChannel.BasicPublishAsync(exchange: exchangeName, routingKey: string.Empty, body: Encoding.UTF8.GetBytes(body));
@@ -43,33 +41,19 @@ internal class RabbitMqBus(
     {
         if(_normalChannel is null) throw new InvalidOperationException("RabbitMQBus has not been initialized.");
 
-        var eventName = integrationEventType.FullName!;
+        var exchangeName = integrationEventType.GetProducerName();
 
-        await _normalChannel.ExchangeDeclareAsync(exchange: eventName, type: ExchangeType.Fanout, durable: true);
-        logger.LogDebug("Declared exchange {ExchangeName}", eventName);
+        await _normalChannel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Fanout, durable: true);
+        logger.LogDebug("Declared exchange {ExchangeName}", exchangeName);
     }
-    
 
     private async Task RegisterHandler(Type integrationEventHandlerType)
     {
         if(_normalChannel is null) throw new InvalidOperationException("RabbitMQBus has not been initialized.");
-        
-        var integrationEventType = integrationEventHandlerType.BaseType!.GetGenericArguments()[0];
-        
-        var defaultProducerName = integrationEventType.FullName!;
-        var defaultQueueName = integrationEventHandlerType.FullName!;
 
-        var producedByAttribute = integrationEventHandlerType
-            .GetCustomAttribute<ProducedByAttribute>(false);
-
-        var consumedByAttribute = integrationEventHandlerType
-            .GetCustomAttribute<ConsumedByAttribute>(false);
-        
-        var throttledAttribute = integrationEventHandlerType
-            .GetCustomAttribute<ThrottledAttribute>(false);
-        
-        var exchangeName = producedByAttribute?.Name ?? defaultProducerName;
-        var queueName = consumedByAttribute?.Name ?? defaultQueueName;
+        var exchangeName = integrationEventHandlerType.GetProducedByName();
+        var queueName = integrationEventHandlerType.GetConsumerName();
+        var throttledRequestInterval = integrationEventHandlerType.GetThrottledRequestInterval();
         
         await _normalChannel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
         logger.LogDebug("Declared queue {QueueName}", queueName);
@@ -78,14 +62,17 @@ internal class RabbitMqBus(
         logger.LogDebug("Bound queue {QueueName} to exchange {ExchangeName}", queueName, exchangeName);
 
         var channel = _normalChannel;
-        if (throttledAttribute is not null)
+        if (throttledRequestInterval is not null)
         {
             channel = _scheduledChannel!;
             logger.LogDebug("Use throttled channel for queue {QueueName}", queueName);
         }
         
+                
+        var integrationEventType = integrationEventHandlerType.BaseType!.GetGenericArguments()[0];
+        
         var consumer = new AsyncEventingBasicConsumer(channel);
-        consumer.ReceivedAsync += async (ch, ea) =>
+        consumer.ReceivedAsync += async (_, ea) =>
         {
             try
             {
@@ -93,7 +80,7 @@ internal class RabbitMqBus(
                 var content =  Encoding.UTF8.GetString(body);
             
                 var integrationEvent = JsonSerializer.Deserialize(content, integrationEventType);
-                if(integrationEvent is null) throw new InvalidDataException($"Integration event '{defaultProducerName}' cannot be deserialized.");
+                if(integrationEvent is null) throw new InvalidDataException($"Integration event '{integrationEventType.Name}' cannot be deserialized.");
 
                 await using var scope = scopeFactory.CreateAsyncScope();
                 dynamic handler = scope.ServiceProvider.GetRequiredService(integrationEventHandlerType);
@@ -101,9 +88,9 @@ internal class RabbitMqBus(
                 logger.LogInformation("Received event {EventName}", integrationEvent.GetType().Name);
                 CanFail result = await handler.Handle((dynamic)integrationEvent, _cancellationTokenSource.Token);
 
-                if (throttledAttribute is not null)
+                if (throttledRequestInterval is not null)
                 {
-                    await Task.Delay(throttledAttribute.RequestInterval);
+                    await Task.Delay(throttledRequestInterval.Value);
                 }
 
                 if (result.HasFailed)
