@@ -21,7 +21,7 @@ internal class RabbitMqBus(
 {
     private IConnection? _connection;
     private IChannel? _normalChannel;
-    private IChannel? _scheduledChannel;
+    private List<IChannel> _scheduledChannels = [];
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
     private bool _disposed;
@@ -64,7 +64,12 @@ internal class RabbitMqBus(
         var channel = _normalChannel;
         if (throttledRequestInterval is not null)
         {
-            channel = _scheduledChannel!;
+            channel = await _connection!.CreateChannelAsync();
+            await channel.BasicQosAsync(
+                prefetchSize: 0,
+                prefetchCount: 1,
+                global: false);;
+            _scheduledChannels.Add(channel);
             logger.LogDebug("Use throttled channel for queue {QueueName}", queueName);
         }
         
@@ -124,12 +129,6 @@ internal class RabbitMqBus(
         
         _connection = await factory.CreateConnectionAsync();
         _normalChannel = await _connection.CreateChannelAsync();
-
-        _scheduledChannel = await _connection.CreateChannelAsync();
-        await _scheduledChannel.BasicQosAsync(
-            prefetchSize: 0,
-            prefetchCount: 1,
-            global: false);
         
         logger.LogInformation("Connection to Broker at {Hostname} established", hostname);
 
@@ -150,6 +149,11 @@ internal class RabbitMqBus(
         _cancellationTokenSource.Cancel();
         _connection?.Dispose();
         _normalChannel?.Dispose();
+        foreach (var channel in _scheduledChannels)
+        {
+            channel.Dispose();
+        }
+        _scheduledChannels.Clear();
         _cancellationTokenSource.Dispose();
         logger.LogInformation("Connection to Broker at {Hostname} closed", hostname);
         _disposed = true;
@@ -161,6 +165,11 @@ internal class RabbitMqBus(
         await _cancellationTokenSource.CancelAsync();
         if (_connection != null) await _connection.DisposeAsync();
         if (_normalChannel != null) await _normalChannel.DisposeAsync();
+        foreach (var channel in _scheduledChannels)
+        {
+            await channel.DisposeAsync();
+        }
+        _scheduledChannels.Clear();
         _cancellationTokenSource.Dispose();
         logger.LogInformation("Connection to Broker at {Hostname} closed", hostname);
         _disposed = true;
