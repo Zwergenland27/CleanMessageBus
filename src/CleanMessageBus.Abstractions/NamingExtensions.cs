@@ -8,6 +8,32 @@ namespace CleanMessageBus.Abstractions;
 /// </summary>
 public static class NamingExtensions
 {
+    private static void EnsureValidEventType(Type type)
+    {
+        if (!type.IsAssignableTo(typeof(IIntegrationEvent)) &&
+            !type.IsAssignableTo(typeof(IDomainEvent)))
+        {
+            throw new InvalidOperationException($"Event type must be assignable to {nameof(IIntegrationEvent)} or {nameof(IDomainEvent)}");
+        }
+    }
+
+    private static void EnsureValidEventHandlerType(Type type)
+    {
+        var integrationEventHandlerType = typeof(IntegrationEventHandlerBase<>);
+        var domainEventHandlerType = typeof(DomainEventHandlerBase<>);
+
+        if (type.BaseType is not { IsGenericType: true })
+        {
+            throw new InvalidOperationException($"Event handler type must be assignable to {integrationEventHandlerType.Name} or {domainEventHandlerType.Name}");
+        }
+        
+        if(type.BaseType.GetGenericTypeDefinition() != integrationEventHandlerType &&
+           type.BaseType.GetGenericTypeDefinition() != domainEventHandlerType)
+        {
+            throw new InvalidOperationException($"Event handler type must be assignable to {integrationEventHandlerType.Name} or {domainEventHandlerType.Name}");
+        }
+    } 
+    
     /// <summary>
     /// Extracts the producer name from event
     /// </summary>
@@ -15,11 +41,7 @@ public static class NamingExtensions
     /// <returns>Name of the producer, either custom or automatically generated</returns>
     public static string GetProducerName(this Type eventType)
     {
-        if (!eventType.IsAssignableTo(typeof(IIntegrationEvent)) &&
-            !eventType.IsAssignableTo(typeof(IDomainEvent)))
-        {
-            throw new InvalidOperationException($"Event type must be assignable to {nameof(IIntegrationEvent)} or {nameof(IDomainEvent)}");
-        }
+        EnsureValidEventType(eventType);
         
         var producesAttribute = eventType
             .GetCustomAttribute<ProducesAttribute>(false);
@@ -42,11 +64,7 @@ public static class NamingExtensions
     /// <returns>Name of the producer, either custom or automatically generated</returns>
     public static string GetProducedByName(this Type eventHandlerType)
     {
-        if (!eventHandlerType.IsAssignableTo(typeof(IntegrationEventHandlerBase<>)) &&
-            !eventHandlerType.IsAssignableTo(typeof(DomainEventHandlerBase<>)))
-        {
-            throw new InvalidOperationException($"Event handler type must be assignable to {typeof(IntegrationEventHandlerBase<>).Name} or {typeof(DomainEventHandlerBase<>).Name}");
-        }
+        EnsureValidEventHandlerType(eventHandlerType);
         
         var producedByAttribute = eventHandlerType
             .GetCustomAttribute<ProducedByAttribute>(false);
@@ -73,11 +91,7 @@ public static class NamingExtensions
     /// <returns>Name of the consumer, either custom or automatically generated</returns>
     public static string GetConsumerName(this Type eventHandlerType)
     {
-        if (!eventHandlerType.IsAssignableTo(typeof(IntegrationEventHandlerBase<>)) &&
-            !eventHandlerType.IsAssignableTo(typeof(DomainEventHandlerBase<>)))
-        {
-            throw new InvalidOperationException($"Event handler type must be assignable to {typeof(IntegrationEventHandlerBase<>).Name} or {typeof(DomainEventHandlerBase<>).Name}");
-        }
+        EnsureValidEventHandlerType(eventHandlerType);
         
         var consumedByAttribute = eventHandlerType
             .GetCustomAttribute<ConsumedByAttribute>(false);
@@ -100,11 +114,7 @@ public static class NamingExtensions
     /// <returns>Throttled request interval in milliseconds if set, or null</returns>
     public static int? GetThrottledRequestInterval(this Type eventHandlerType)
     {
-        if (!eventHandlerType.IsAssignableTo(typeof(IntegrationEventHandlerBase<>)) &&
-            !eventHandlerType.IsAssignableTo(typeof(DomainEventHandlerBase<>)))
-        {
-            throw new InvalidOperationException($"Event handler type must be assignable to {typeof(IntegrationEventHandlerBase<>).Name} or {typeof(DomainEventHandlerBase<>).Name}");
-        }
+        EnsureValidEventHandlerType(eventHandlerType);
         
         var throttledAttribute = eventHandlerType
             .GetCustomAttribute<ThrottledAttribute>(false);

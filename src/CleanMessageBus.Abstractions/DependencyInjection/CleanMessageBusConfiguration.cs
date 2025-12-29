@@ -113,14 +113,14 @@ public class CleanMessageBusConfiguration(IServiceCollection services)
     {
         Type handlerType = typeof(IntegrationEventHandlerBase<>);
         var handlerTypes = assembly.GetTypes()
-            .Where(type => type is { IsAbstract: false, IsInterface: false })
-            .SelectMany(type => type.GetInterfaces(), (type, @interface) => new { concreteType = type, handlerInterface = @interface })
-            .Where(t => t.handlerInterface.IsGenericType && t.handlerInterface.GetGenericTypeDefinition() == handlerType);
+            .Where(type =>
+                type.BaseType is { IsGenericType: true } && 
+                type.BaseType.GetGenericTypeDefinition() == handlerType);
         
         foreach (var handler in handlerTypes)
         {
-            Services.AddTransient(handler.concreteType);
-            _integrationEventHandlers.Add(handler.concreteType);
+            Services.AddTransient(handler);
+            _integrationEventHandlers.Add(handler);
         }
     }
     
@@ -128,14 +128,14 @@ public class CleanMessageBusConfiguration(IServiceCollection services)
     {
         Type handlerType = typeof(DomainEventHandlerBase<>);
         var handlerTypes = assembly.GetTypes()
-            .Where(type => type is { IsAbstract: false, IsInterface: false })
-            .SelectMany(type => type.GetInterfaces(), (type, @interface) => new { concreteType = type, handlerInterface = @interface })
-            .Where(t => t.handlerInterface.IsGenericType && t.handlerInterface.GetGenericTypeDefinition() == handlerType);
+            .Where(type =>
+                type.BaseType is { IsGenericType: true } && 
+                type.BaseType.GetGenericTypeDefinition() == handlerType);
         
         foreach (var handler in handlerTypes)
         {
-            Services.AddTransient(handler.concreteType);
-            _domainEventHandlers.Add(handler.concreteType);
+            Services.AddTransient(handler);
+            _domainEventHandlers.Add(handler);
         }
     }
 
