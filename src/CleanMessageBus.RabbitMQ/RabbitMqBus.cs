@@ -1,9 +1,7 @@
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using CleanDomainValidation.Domain;
 using CleanMessageBus.Abstractions;
-using CleanMessageBus.Abstractions.HandlerAttributes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
@@ -16,6 +14,8 @@ internal class RabbitMqBus(
     ILogger<RabbitMqBus> logger,
     IReadOnlyCollection<Type> integrationEvents,
     IReadOnlyCollection<Type> integrationEventHandlers,
+    IReadOnlyCollection<Type> domainEvents,
+    IReadOnlyCollection<Type> domainEventHandlers,
     string hostname,
     string username,
     string password,
@@ -23,53 +23,50 @@ internal class RabbitMqBus(
 {
     private IConnection? _connection;
     private IChannel? _normalChannel;
-    private IChannel? _scheduledChannel;
+    private List<IChannel> _scheduledChannels = [];
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
-    private bool _disposed = false;
+    private bool _disposed;
     
     public async Task PublishAsync(IIntegrationEvent integrationEvent)
     {
         if(_normalChannel is null) throw new InvalidOperationException("RabbitMQBus has not been initialized.");
         
-        var exchangeName = integrationEvent.GetType().FullName!;
+        var exchangeName = integrationEvent.GetType().GetProducerName();
         var body = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType());
         
         await _normalChannel.BasicPublishAsync(exchange: exchangeName, routingKey: string.Empty, body: Encoding.UTF8.GetBytes(body));
         logger.LogInformation("Published event {EventName} to exchange {ExchangeName}", integrationEvent.GetType().Name, exchangeName);
     }
-
-    private async Task RegisterIntegrationEvent(Type integrationEventType)
-    {
-        if(_normalChannel is null) throw new InvalidOperationException("RabbitMQBus has not been initialized.");
-
-        var eventName = integrationEventType.FullName!;
-
-        await _normalChannel.ExchangeDeclareAsync(exchange: eventName, type: ExchangeType.Fanout, durable: true);
-        logger.LogDebug("Declared exchange {ExchangeName}", eventName);
-    }
     
-
-    private async Task RegisterHandler(Type integrationEventHandlerType)
+    public async Task PublishAsync(IDomainEvent domainEvent)
     {
         if(_normalChannel is null) throw new InvalidOperationException("RabbitMQBus has not been initialized.");
         
-        var integrationEventType = integrationEventHandlerType.BaseType!.GetGenericArguments()[0];
+        var exchangeName = domainEvent.GetType().GetProducerName();
+        var body = JsonSerializer.Serialize(domainEvent, domainEvent.GetType());
         
-        var defaultProducerName = integrationEventType.FullName!;
-        var defaultQueueName = integrationEventHandlerType.FullName!;
+        await _normalChannel.BasicPublishAsync(exchange: exchangeName, routingKey: string.Empty, body: Encoding.UTF8.GetBytes(body));
+        logger.LogInformation("Published event {EventName} to exchange {ExchangeName}", domainEvent.GetType().Name, exchangeName);
+    }
 
-        var producedByAttribute = integrationEventHandlerType
-            .GetCustomAttribute<ProducedByAttribute>(false);
+    private async Task RegisterEventAsync(Type eventType)
+    {
+        if(_normalChannel is null) throw new InvalidOperationException("RabbitMQBus has not been initialized.");
 
-        var consumedByAttribute = integrationEventHandlerType
-            .GetCustomAttribute<ConsumedByAttribute>(false);
-        
-        var throttledAttribute = integrationEventHandlerType
-            .GetCustomAttribute<ThrottledAttribute>(false);
-        
-        var exchangeName = producedByAttribute?.Name ?? defaultProducerName;
-        var queueName = consumedByAttribute?.Name ?? defaultQueueName;
+        var exchangeName = eventType.GetProducerName();
+
+        await _normalChannel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Fanout, durable: true);
+        logger.LogDebug("Declared exchange {ExchangeName}", exchangeName);
+    }
+
+    private async Task RegisterHandlerAsync(Type eventHandlerType)
+    {
+        if(_normalChannel is null) throw new InvalidOperationException("RabbitMQBus has not been initialized.");
+
+        var exchangeName = eventHandlerType.GetProducedByName();
+        var queueName = eventHandlerType.GetConsumerName();
+        var throttledRequestInterval = eventHandlerType.GetThrottledRequestInterval();
         
         await _normalChannel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
         logger.LogDebug("Declared queue {QueueName}", queueName);
@@ -78,44 +75,52 @@ internal class RabbitMqBus(
         logger.LogDebug("Bound queue {QueueName} to exchange {ExchangeName}", queueName, exchangeName);
 
         var channel = _normalChannel;
-        if (throttledAttribute is not null)
+        if (throttledRequestInterval is not null)
         {
-            channel = _scheduledChannel!;
+            channel = await _connection!.CreateChannelAsync();
+            await channel.BasicQosAsync(
+                prefetchSize: 0,
+                prefetchCount: 1,
+                global: false);
+            _scheduledChannels.Add(channel);
             logger.LogDebug("Use throttled channel for queue {QueueName}", queueName);
         }
         
+                
+        var eventType = eventHandlerType.BaseType!.GetGenericArguments()[0];
+        
         var consumer = new AsyncEventingBasicConsumer(channel);
-        consumer.ReceivedAsync += async (ch, ea) =>
+        consumer.ReceivedAsync += async (_, ea) =>
         {
             try
             {
                 var body = ea.Body.ToArray();
                 var content =  Encoding.UTF8.GetString(body);
             
-                var integrationEvent = JsonSerializer.Deserialize(content, integrationEventType);
-                if(integrationEvent is null) throw new InvalidDataException($"Integration event '{defaultProducerName}' cannot be deserialized.");
+                var @event = JsonSerializer.Deserialize(content, eventType);
+                if(@event is null) throw new InvalidDataException($"Event '{eventType.Name}' cannot be deserialized.");
 
                 await using var scope = scopeFactory.CreateAsyncScope();
-                dynamic handler = scope.ServiceProvider.GetRequiredService(integrationEventHandlerType);
+                dynamic handler = scope.ServiceProvider.GetRequiredService(eventHandlerType);
             
-                logger.LogInformation("Received event {EventName}", integrationEvent.GetType().Name);
-                CanFail result = await handler.Handle((dynamic)integrationEvent, _cancellationTokenSource.Token);
+                logger.LogInformation("Received event {EventName}", @event.GetType().Name);
+                CanFail result = await handler.Handle((dynamic)@event, _cancellationTokenSource.Token);
 
-                if (throttledAttribute is not null)
+                if (throttledRequestInterval is not null)
                 {
-                    await Task.Delay(throttledAttribute.RequestInterval);
+                    await Task.Delay(throttledRequestInterval.Value);
                 }
 
                 if (result.HasFailed)
                 {
-                    logger.LogWarning("Handling event {EventName} failed", integrationEvent.GetType().Name);
+                    logger.LogWarning("Handling event {EventName} failed", @event.GetType().Name);
                     //TODO: error handling
                 }
                 await channel.BasicAckAsync(ea.DeliveryTag, true);
             }
             catch (Exception e)
             {
-                logger.LogError(e, "Error occured while handling event {EventName}", integrationEventType.Name);
+                logger.LogError(e, "Error occured while handling event {EventName}", eventType.Name);
             }
         };
         
@@ -137,23 +142,27 @@ internal class RabbitMqBus(
         
         _connection = await factory.CreateConnectionAsync();
         _normalChannel = await _connection.CreateChannelAsync();
-
-        _scheduledChannel = await _connection.CreateChannelAsync();
-        await _scheduledChannel.BasicQosAsync(
-            prefetchSize: 0,
-            prefetchCount: 1,
-            global: false);
         
         logger.LogInformation("Connection to Broker at {Hostname} established", hostname);
 
         foreach (var integrationEvent in integrationEvents)
         {
-            await RegisterIntegrationEvent(integrationEvent);
+            await RegisterEventAsync(integrationEvent);
         }
 
         foreach (var integrationEventHandler in integrationEventHandlers)
         {
-            await  RegisterHandler(integrationEventHandler);
+            await  RegisterHandlerAsync(integrationEventHandler);
+        }
+
+        foreach (var domainEvent in domainEvents)
+        {
+            await RegisterEventAsync(domainEvent);
+        }
+        
+        foreach (var domainEventHandler in domainEventHandlers)
+        {
+            await  RegisterHandlerAsync(domainEventHandler);
         }
     }
 
@@ -163,6 +172,11 @@ internal class RabbitMqBus(
         _cancellationTokenSource.Cancel();
         _connection?.Dispose();
         _normalChannel?.Dispose();
+        foreach (var channel in _scheduledChannels)
+        {
+            channel.Dispose();
+        }
+        _scheduledChannels.Clear();
         _cancellationTokenSource.Dispose();
         logger.LogInformation("Connection to Broker at {Hostname} closed", hostname);
         _disposed = true;
@@ -174,6 +188,11 @@ internal class RabbitMqBus(
         await _cancellationTokenSource.CancelAsync();
         if (_connection != null) await _connection.DisposeAsync();
         if (_normalChannel != null) await _normalChannel.DisposeAsync();
+        foreach (var channel in _scheduledChannels)
+        {
+            await channel.DisposeAsync();
+        }
+        _scheduledChannels.Clear();
         _cancellationTokenSource.Dispose();
         logger.LogInformation("Connection to Broker at {Hostname} closed", hostname);
         _disposed = true;
