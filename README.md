@@ -3,10 +3,10 @@ This package provides an abstraction around message busses for easy integration 
 Currently the following message brokers are supported:
 * RabbitMQ
 
-## Publishing integration Events
-* Event object must implement marker interface ``IIntegrationevent``
+## Publishing Events
+* Event object must implement marker interface ``IIntegrationevent`` for integration events ot ``IDomainEvent`` for domain events
 * Inject ``IMessageBus`` to desired service
-* Publich event by using ``IMessageBus.PublishAsync(integrationEvent)``
+* Publish event by using ``IMessageBus.PublishAsync(integrationEvent)``
 * Automatic creation of producer resource on message bus (for example exchange for rabbitmq)
 
 * Example:
@@ -17,8 +17,12 @@ var integrationEvent = new UserRegisteredEvent("JohnDoe", "john@doe.com");
 await messageBus.PublishAsync(integrationevent);
 ```
 
-## Handling integration Events
-* Handler must inherit from ``IntegrationEventHandlerBase`` class
+### Change producer name
+* Use attribute ``[Produces(Name="ProducerName")]`` to set producer name
+
+## Handling Events
+* Handler must inherit from ``IntegrationEventHandlerBase<TIntegrationEvent>`` class for integration events or from ``DomainEventHandlerBase<TDomainEvent>`` for domain events
+* Generic type specifies domain event type to receive
 * Implementation logic must be implemented in the ``Handle`` method
 * Registration happens automatically via dependency injection
 * Automatic creation of consumer resource on message bus (for example queue for rabbitmq)
@@ -42,6 +46,7 @@ public class UserRegisteredEventHandler : IntegrationEventHandlerBase<UserRegist
 
 ### Change consumer name
 * Use attribute ``[ConsumedBy(Name="ConsumerName")]`` to set consumer name
+* Not allowed for domain events!
 
 ### Change producer name
 * Use attribute ``[ProducedBy(Name="ProducerName")]`` to set producer name
@@ -57,7 +62,8 @@ public class UserRegisteredEventHandler : IntegrationEventHandlerBase<UserRegist
 Example:
 ```csharp
 builder.Services.AddCleanMessageBus(config => config
-    .RegisterIntegrationEvensFromAssembly(Assembly.GetExecutingAssembly())
+    .RegisterIntegrationEventsFromAssembly(Assembly.GetExecutingAssembly())
+    .RegisterDomainEventsFromAssemby(Assembly.GetExecutingAssembly())
     .RegisterHandlersFromAssemby(Assembly.GetExecutingAssembly()
     .UseRabbitMq(rabbitConfig => rabbitConfig
         .WithHostname("localhost")
