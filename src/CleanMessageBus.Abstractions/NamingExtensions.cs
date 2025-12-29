@@ -69,9 +69,10 @@ public static class NamingExtensions
         var producedByAttribute = eventHandlerType
             .GetCustomAttribute<ProducedByAttribute>(false);
 
-        if (producedByAttribute is not null && eventHandlerType.IsAssignableTo(typeof(DomainEventHandlerBase<>)))
+        if (producedByAttribute is not null && 
+            eventHandlerType.BaseType!.GetGenericTypeDefinition() == typeof(DomainEventHandlerBase<>))
         {
-            throw new InvalidOperationException("ProducedBy attribute cannot be set for domain event handlers. The correct producer name will be automatically generated from the domain event type.");
+            throw new InvalidOperationException("ProducedBy attribute is not allowed to be set for domain event handlers. The correct producer name will be automatically generated from the domain event type.");
         }
         
         if (producedByAttribute is not null)
