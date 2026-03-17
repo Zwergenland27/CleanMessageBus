@@ -79,8 +79,25 @@ internal class RabbitMqBus(
         var exchangeName = eventHandlerType.GetProducedByName();
         var queueName = eventHandlerType.GetConsumerName();
         var throttledRequestInterval = eventHandlerType.GetThrottledRequestInterval();
+
+        var deadLetterExchangeName = $"{exchangeName}.dlx";
+        var deadLetterQueueName =  $"{exchangeName}.dlq";
         
-        await _normalChannel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
+        await _normalChannel.ExchangeDeclareAsync(exchange: deadLetterExchangeName, type: ExchangeType.Fanout, durable: true);
+        logger.LogDebug("Declared dead letter exchange {ExchangeName}", deadLetterExchangeName);
+
+        await _normalChannel.QueueDeclareAsync(queue: deadLetterQueueName, durable: true, exclusive: false,
+            autoDelete: false, arguments: null);
+        logger.LogDebug("Declared dead letter queue {QueueName}", deadLetterQueueName);
+        
+        await _normalChannel.QueueBindAsync(queue: deadLetterQueueName, exchange: deadLetterExchangeName, routingKey: string.Empty);
+        logger.LogDebug("Bound dead letter queue {QueueName} to exchange {ExchangeName}", deadLetterQueueName, deadLetterExchangeName);
+
+        var queueArguments = new Dictionary<string, object?>()
+        {
+            { "x-dead-letter-exchange", deadLetterExchangeName }
+        };
+        await _normalChannel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: queueArguments);
         logger.LogDebug("Declared queue {QueueName}", queueName);
         
         await _normalChannel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: string.Empty);
@@ -126,13 +143,14 @@ internal class RabbitMqBus(
                 if (result.HasFailed)
                 {
                     logger.LogWarning("Handling event {EventName} failed", @event.GetType().Name);
-                    //TODO: error handling
+                    await channel.BasicNackAsync(ea.DeliveryTag, false, false);
                 }
-                await channel.BasicAckAsync(ea.DeliveryTag, true);
+                await channel.BasicAckAsync(ea.DeliveryTag, false);
             }
             catch (Exception e)
             {
                 logger.LogError(e, "Error occured while handling event {EventName}", eventType.Name);
+                await channel.BasicNackAsync(ea.DeliveryTag, false, false);
             }
         };
         
