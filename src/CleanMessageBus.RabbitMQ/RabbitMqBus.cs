@@ -34,8 +34,14 @@ internal class RabbitMqBus(
         
         var exchangeName = integrationEvent.GetType().GetProducerName();
         var body = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType());
-        
-        await _normalChannel.BasicPublishAsync(exchange: exchangeName, routingKey: string.Empty, body: Encoding.UTF8.GetBytes(body));
+
+        var props = new BasicProperties
+        {
+            ContentType = "application/json",
+            DeliveryMode = DeliveryModes.Persistent
+        };
+
+        await _normalChannel.BasicPublishAsync(exchange: exchangeName, routingKey: string.Empty, true, props, body: Encoding.UTF8.GetBytes(body));
         logger.LogInformation("Published event {EventName} to exchange {ExchangeName}", integrationEvent.GetType().Name, exchangeName);
     }
     
@@ -46,7 +52,13 @@ internal class RabbitMqBus(
         var exchangeName = domainEvent.GetType().GetProducerName();
         var body = JsonSerializer.Serialize(domainEvent, domainEvent.GetType());
         
-        await _normalChannel.BasicPublishAsync(exchange: exchangeName, routingKey: string.Empty, body: Encoding.UTF8.GetBytes(body));
+        var props = new BasicProperties
+        {
+            ContentType = "application/json",
+            DeliveryMode = DeliveryModes.Persistent
+        };
+        
+        await _normalChannel.BasicPublishAsync(exchange: exchangeName, routingKey: string.Empty, true, props, body: Encoding.UTF8.GetBytes(body));
         logger.LogInformation("Published event {EventName} to exchange {ExchangeName}", domainEvent.GetType().Name, exchangeName);
     }
 
