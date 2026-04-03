@@ -145,7 +145,10 @@ internal class RabbitMqBus(
                     logger.LogWarning("Handling event {EventName} failed", @event.GetType().Name);
                     await channel.BasicNackAsync(ea.DeliveryTag, false, false);
                 }
-                await channel.BasicAckAsync(ea.DeliveryTag, false);
+                else
+                {
+                    await channel.BasicAckAsync(ea.DeliveryTag, false);   
+                }
             }
             catch (Exception e)
             {
